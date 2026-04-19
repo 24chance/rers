@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+@theme {
+  /* RNEC Color Palette */
+  --color-rnec-navy: #0B2447;
+  --color-rnec-teal: #0E6B6B;
+  --color-rnec-gold: #C9A840;
+  --color-rnec-gold-light: #E8D49A;
+  --color-rnec-blue: #1565C0;
+  --color-rnec-light-teal: #1B8A8A;
+  --color-rnec-dark-teal: #0A5555;
+  --color-rnec-bg-gradient-start: #0B2447;
+  --color-rnec-bg-gradient-end: #0E6B6B;
+
+  /* Font Family */
+  --font-family-inter: 'Inter', sans-serif;
+}
+
+:root {
+  --rnec-navy: #0B2447;
+  --rnec-teal: #0E6B6B;
+  --rnec-gold: #C9A840;
+  --rnec-gold-light: #E8D49A;
+  --rnec-blue: #1565C0;
+  --rnec-light-teal: #1B8A8A;
+  --rnec-dark-teal: #0A5555;
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+/* Base body */
+body {
+  font-family: 'Inter', Arial, Helvetica, sans-serif;
+  background: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* RNEC gradient background utility */
+.rnec-gradient {
+  background: linear-gradient(135deg, var(--rnec-navy) 0%, var(--rnec-teal) 100%);
+}
+
+.rnec-gradient-radial {
+  background: radial-gradient(ellipse at top left, var(--rnec-navy) 0%, var(--rnec-teal) 100%);
+}
+
+.rnec-text-gradient {
+  background: linear-gradient(90deg, var(--rnec-gold) 0%, var(--rnec-gold-light) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--rnec-teal);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--rnec-navy);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--rnec-teal) #f1f5f9;
+}
+
+/* Focus ring utility */
+.focus-ring {
+  outline: 2px solid var(--rnec-gold);
+  outline-offset: 2px;
+}
+
+/* Transition defaults */
+.transition-base {
+  transition: all 0.2s ease-in-out;
+}
