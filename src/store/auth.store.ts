@@ -1,6 +1,29 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, type StorageValue } from 'zustand/middleware'
 import type { User } from '@/types'
+
+const COOKIE_MAX_AGE = 7 * 24 * 60 * 60 // 7 days
+
+const cookieStorage = {
+  getItem: (name: string): StorageValue<unknown> | null => {
+    if (typeof document === 'undefined') return null
+    const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`))
+    if (!match) return null
+    try {
+      return JSON.parse(decodeURIComponent(match[1]))
+    } catch {
+      return null
+    }
+  },
+  setItem: (name: string, value: StorageValue<unknown>) => {
+    if (typeof document === 'undefined') return
+    document.cookie = `${name}=${encodeURIComponent(JSON.stringify(value))}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`
+  },
+  removeItem: (name: string) => {
+    if (typeof document === 'undefined') return
+    document.cookie = `${name}=; path=/; max-age=0`
+  },
+}
 
 interface AuthState {
   user: User | null
@@ -42,6 +65,7 @@ export const useAuthStore = create<AuthStore>()(
     }),
     {
       name: 'rnec-auth',
+      storage: cookieStorage,
       partialize: (state) => ({
         user: state.user,
         accessToken: state.accessToken,

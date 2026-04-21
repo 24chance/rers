@@ -13,7 +13,6 @@ import { toast } from '@/components/ui/toast'
 import { authApi } from '@/lib/api/auth.api'
 import { clsx } from 'clsx'
 
-// Step schemas
 const step1Schema = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
@@ -23,7 +22,7 @@ const step1Schema = z.object({
 
 const step2Schema = z
   .object({
-    password: z.string().min(8, 'Password must be at least 8 characters'),
+    password: z.string().min(6, 'Password must be at least 6 characters'),
     confirmPassword: z.string().min(1, 'Please confirm your password'),
   })
   .refine((d) => d.password === d.confirmPassword, {
@@ -31,51 +30,35 @@ const step2Schema = z
     path: ['confirmPassword'],
   })
 
-const step3Schema = z.object({
-  role: z.enum(['APPLICANT', 'REVIEWER']),
-  tenantCode: z.string().optional(),
-})
-
 type Step1Data = z.infer<typeof step1Schema>
 type Step2Data = z.infer<typeof step2Schema>
-type Step3Data = z.infer<typeof step3Schema>
 
-const steps = ['Account', 'Password', 'Role']
+const steps = ['Account', 'Password']
 
 export default function RegisterPage() {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(0)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
-
-  // Accumulated form data
   const [step1Data, setStep1Data] = useState<Step1Data | null>(null)
-  const [step2Data, setStep2Data] = useState<Step2Data | null>(null)
 
   const form1 = useForm<Step1Data>({ resolver: zodResolver(step1Schema), defaultValues: step1Data ?? {} })
   const form2 = useForm<Step2Data>({ resolver: zodResolver(step2Schema) })
-  const form3 = useForm<Step3Data>({ resolver: zodResolver(step3Schema), defaultValues: { role: 'APPLICANT' } })
 
-  const handleStep1 = async (data: Step1Data) => {
+  const handleStep1 = (data: Step1Data) => {
     setStep1Data(data)
     setCurrentStep(1)
   }
 
   const handleStep2 = async (data: Step2Data) => {
-    setStep2Data(data)
-    setCurrentStep(2)
-  }
-
-  const handleStep3 = async (data: Step3Data) => {
-    if (!step1Data || !step2Data) return
+    if (!step1Data) return
     try {
       await authApi.register({
         firstName: step1Data.firstName,
         lastName: step1Data.lastName,
         email: step1Data.email,
         phone: step1Data.phone,
-        password: step2Data.password,
-        tenantCode: data.tenantCode,
+        password: data.password,
       })
       toast.success('Account created! Please verify your email.')
       router.push(`/verify-otp?email=${encodeURIComponent(step1Data.email)}`)
@@ -201,73 +184,12 @@ export default function RegisterPage() {
             <Button type="button" variant="outline" size="lg" className="flex-1" leftIcon={<ChevronLeft className="h-4 w-4" />} onClick={() => setCurrentStep(0)}>
               Back
             </Button>
-            <Button type="submit" variant="primary" size="lg" className="flex-1" rightIcon={<ChevronRight className="h-4 w-4" />}>
-              Continue
-            </Button>
-          </div>
-        </form>
-      )}
-
-      {/* Step 3: Role */}
-      {currentStep === 2 && (
-        <form onSubmit={form3.handleSubmit(handleStep3)} noValidate className="space-y-4">
-          <div>
-            <p className="text-sm font-medium text-slate-700 mb-3">Select your role</p>
-            <div className="space-y-3">
-              {[
-                {
-                  value: 'APPLICANT' as const,
-                  label: 'Research Applicant',
-                  description: 'Submit and manage research ethics applications',
-                },
-                {
-                  value: 'REVIEWER' as const,
-                  label: 'External Reviewer',
-                  description: 'Review assigned research applications (requires admin approval)',
-                },
-              ].map((option) => (
-                <label
-                  key={option.value}
-                  className={clsx(
-                    'flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors',
-                    form3.watch('role') === option.value
-                      ? 'border-rnec-teal bg-rnec-teal/5'
-                      : 'border-slate-200 hover:border-slate-300',
-                  )}
-                >
-                  <input
-                    type="radio"
-                    value={option.value}
-                    className="mt-0.5 accent-rnec-teal"
-                    {...form3.register('role')}
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-slate-900">{option.label}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{option.description}</p>
-                  </div>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <Input
-            label="Institution code (optional)"
-            placeholder="e.g. KIGALI-IRB"
-            helperText="Enter your institution's code if provided by an administrator"
-            error={form3.formState.errors.tenantCode?.message}
-            {...form3.register('tenantCode')}
-          />
-
-          <div className="flex gap-3 pt-2">
-            <Button type="button" variant="outline" size="lg" className="flex-1" leftIcon={<ChevronLeft className="h-4 w-4" />} onClick={() => setCurrentStep(1)}>
-              Back
-            </Button>
             <Button
               type="submit"
               variant="primary"
               size="lg"
               className="flex-1"
-              loading={form3.formState.isSubmitting}
+              loading={form2.formState.isSubmitting}
             >
               Create Account
             </Button>

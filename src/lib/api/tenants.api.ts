@@ -1,11 +1,22 @@
 import { api } from './client'
 import type { Tenant } from '@/types'
 
+export interface TenantAdminDto {
+  firstName: string
+  lastName: string
+  email: string
+  phone?: string
+}
+
 export interface CreateTenantDto {
   name: string
   code: string
   type: string
   logoUrl?: string
+  address?: string
+  phone?: string
+  email?: string
+  admin: TenantAdminDto
 }
 
 export interface UpdateTenantDto {
@@ -16,8 +27,9 @@ export interface UpdateTenantDto {
 
 export const tenantsApi = {
   getTenants: async (): Promise<Tenant[]> => {
-    const response = await api.get<Tenant[]>('/tenants')
-    return response.data
+    const response = await api.get<{ data: Tenant[] } | Tenant[]>('/tenants')
+    const raw = response.data
+    return Array.isArray(raw) ? raw : raw.data.data
   },
 
   getTenant: async (id: string): Promise<Tenant> => {

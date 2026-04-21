@@ -8,7 +8,7 @@ export interface ApplicantDashboard {
   approvedApplications: number
   recentApplications: Array<{
     id: string
-    referenceNumber: string
+    referenceNumber: string | null
     title: string
     status: string
     updatedAt: string

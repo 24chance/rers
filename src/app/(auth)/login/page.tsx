@@ -16,7 +16,7 @@ import type { UserRole } from '@/types'
 
 const schema = z.object({
   email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
 })
 
 type FormData = z.infer<typeof schema>
@@ -44,11 +44,19 @@ export default function LoginPage() {
 
   const onSubmit = async (data: FormData) => {
     try {
-      const result = await authApi.login(data.email, data.password)
-      setAuth(result.user, result.accessToken)
+      let result = await authApi.login(data.email, data.password)
+      result = result.data
+      // API returns role as an object { id, name }; normalize to the string name
+      const rawRole = result.user.role as unknown as { name: UserRole } | UserRole
+      const roleName: UserRole = typeof rawRole === 'object' ? rawRole.name : rawRole
+      const user = { ...result.user, role: roleName }
+      setAuth(user, result.accessToken)
       toast.success(`Welcome back, ${result.user.firstName}!`)
-      const destination = roleRedirectMap[result.user.role] ?? '/applicant/dashboard'
-      router.push(destination)
+      if (user.firstLogin) {
+        router.push('/change-password')
+      } else {
+        router.push(roleRedirectMap[roleName] ?? '/applicant/dashboard')
+      }
     } catch (err: unknown) {
       const message =
         (err as { message?: string })?.message ?? 'Invalid email or password. Please try again.'

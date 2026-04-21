@@ -15,7 +15,7 @@ import { authApi } from '@/lib/api/auth.api'
 
 const schema = z
   .object({
-    password: z.string().min(8, 'Password must be at least 8 characters'),
+    password: z.string().min(6, 'Password must be at least 6 characters'),
     confirmPassword: z.string().min(1, 'Please confirm your password'),
   })
   .refine((d) => d.password === d.confirmPassword, {
@@ -73,7 +73,7 @@ function ResetPasswordForm() {
           type={showPassword ? 'text' : 'password'}
           placeholder="••••••••"
           required
-          helperText="Minimum 8 characters"
+          helperText="Minimum 6 characters"
           error={errors.password?.message}
           rightElement={
             <button

@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState, useCallback } from 'react'
-import { UploadCloud, X, FileText, AlertCircle } from 'lucide-react'
+import { UploadCloud, X, FileText, AlertCircle, ExternalLink } from 'lucide-react'
 import { clsx } from 'clsx'
 import { Select } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
@@ -237,6 +237,17 @@ export function DocumentUploader({
                   )}
                 </div>
               </div>
+              {doc.path && (
+                <a
+                  href={doc.path}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-slate-400 hover:text-rnec-teal transition-colors"
+                  aria-label="Preview document"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              )}
               {!readOnly && (
                 <button
                   type="button"

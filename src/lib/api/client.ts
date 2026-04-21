@@ -1,5 +1,6 @@
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios'
 import type { ApiError } from '@/types'
+import { useAuthStore } from '@/store/auth.store'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1'
 
@@ -15,17 +16,9 @@ const api: AxiosInstance = axios.create({
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('rnec-auth')
-        if (stored) {
-          const parsed = JSON.parse(stored) as { state?: { accessToken?: string } }
-          const token = parsed?.state?.accessToken
-          if (token) {
-            config.headers.Authorization = `Bearer ${token}`
-          }
-        }
-      } catch {
-        // silently ignore parse errors
+      const token = useAuthStore.getState().accessToken
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`
       }
     }
     return config
@@ -53,8 +46,7 @@ api.interceptors.response.use(
 
     // Handle 401 Unauthorized
     if (status === 401 && typeof window !== 'undefined') {
-      localStorage.removeItem('rnec-auth')
-      // Avoid redirect loop on login page
+      useAuthStore.getState().clearAuth()
       if (!window.location.pathname.startsWith('/login')) {
         window.location.href = '/login'
       }

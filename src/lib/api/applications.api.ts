@@ -20,6 +20,7 @@ export interface GetApplicationsParams {
 export interface CreateApplicationDto {
   title: string
   type: ApplicationType
+  tenantId?: string
   formData?: Record<string, unknown>
 }
 
@@ -33,17 +34,17 @@ export const applicationsApi = {
     params?: GetApplicationsParams,
   ): Promise<PaginatedResponse<Application>> => {
     const response = await api.get<PaginatedResponse<Application>>('/applications', { params })
-    return response.data
+    return response.data.data
   },
 
   getApplication: async (id: string): Promise<Application> => {
     const response = await api.get<Application>(`/applications/${id}`)
-    return response.data
+    return response.data.data
   },
 
   createApplication: async (dto: CreateApplicationDto): Promise<Application> => {
-    const response = await api.post<Application>('/applications', dto)
-    return response.data
+    const response = await api.post<{ data: Application }>('/applications', dto)
+    return response.data.data
   },
 
   updateApplication: async (id: string, dto: UpdateApplicationDto): Promise<Application> => {

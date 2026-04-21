@@ -62,6 +62,16 @@ export const authApi = {
     return response.data
   },
 
+  changePassword: async (currentPassword: string, newPassword: string): Promise<{ message: string }> => {
+    const response = await api.post<{ message: string }>('/auth/change-password', { currentPassword, newPassword })
+    return response.data
+  },
+
+  skipFirstLogin: async (): Promise<{ message: string }> => {
+    const response = await api.patch<{ message: string }>('/auth/skip-first-login')
+    return response.data
+  },
+
   refreshToken: async (): Promise<RefreshTokenResponse> => {
     const response = await api.post<RefreshTokenResponse>('/auth/refresh')
     return response.data

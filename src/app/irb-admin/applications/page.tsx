@@ -57,6 +57,8 @@ export default function IrbApplicationsPage() {
       }),
   })
 
+  console.log(data)
+
   return (
     <div className="space-y-6">
       <div>

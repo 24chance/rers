@@ -3,7 +3,7 @@
 import { use, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { ArrowLeft, FileText, Download, CreditCard, MessageSquare, Clock } from 'lucide-react'
+import { ArrowLeft, CreditCard, Clock } from 'lucide-react'
 import * as Tabs from '@radix-ui/react-tabs'
 import { Card, CardBody } from '@/components/ui/card'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -14,9 +14,9 @@ import { QueryThread } from '@/components/workflow/query-thread'
 import { DocumentUploader } from '@/components/upload/document-uploader'
 import { applicationsApi } from '@/lib/api/applications.api'
 import { paymentsApi } from '@/lib/api/payments.api'
+import { queriesApi } from '@/lib/api/queries.api'
 import { format } from 'date-fns'
 import { clsx } from 'clsx'
-import type { QueryMessage } from '@/components/workflow/query-thread'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -44,6 +44,12 @@ export default function ApplicationDetailPage({ params }: Props) {
     enabled: !!id && activeTab === 'documents',
   })
 
+  const { data: queries = [] } = useQuery({
+    queryKey: ['application-queries', id],
+    queryFn: () => queriesApi.getQueries(id),
+    enabled: !!id && activeTab === 'queries',
+  })
+
   const { data: invoice } = useQuery({
     queryKey: ['invoice', id],
     queryFn: () => paymentsApi.getInvoice(id),
@@ -66,9 +72,6 @@ export default function ApplicationDetailPage({ params }: Props) {
       </div>
     )
   }
-
-  // Mock query messages — in production these would come from API
-  const queryMessages: QueryMessage[] = []
 
   const tabClass = (tab: string) =>
     clsx(
@@ -180,7 +183,7 @@ export default function ApplicationDetailPage({ params }: Props) {
               <h3 className="text-sm font-semibold text-slate-900 mb-4">IRB Queries</h3>
               <QueryThread
                 applicationId={id}
-                messages={queryMessages}
+                queries={queries}
                 canRespond={application.status === 'QUERY_RAISED'}
               />
             </CardBody>

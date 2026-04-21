@@ -86,8 +86,10 @@ export interface User {
   lastName: string
   phone?: string
   role: UserRole
-  tenantId: string
+  tenantId?: string | null
+  isActive: boolean
   isVerified: boolean
+  firstLogin?: boolean
   createdAt: string
 }
 
@@ -121,6 +123,8 @@ export interface ApplicationDocument {
   originalName: string
   mimeType: string
   size: number
+  path: string
+  cloudinaryPublicId?: string | null
   documentType: DocumentType
   version: number
   createdAt: string

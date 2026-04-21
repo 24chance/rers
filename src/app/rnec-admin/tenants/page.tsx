@@ -2,6 +2,9 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { Building2, Plus } from 'lucide-react'
 import { Card, CardHeader, CardBody } from '@/components/ui/card'
 import { Table, TableHead, TableBody, TableRow, TableCell, TableHeader } from '@/components/ui/table'
@@ -15,26 +18,48 @@ import { toast } from '@/components/ui/toast'
 import { tenantsApi } from '@/lib/api/tenants.api'
 import { clsx } from 'clsx'
 
+const schema = z.object({
+  name: z.string().min(2, 'Institution name is required'),
+  code: z.string().min(2, 'Code is required').max(12, 'Max 12 characters').toUpperCase(),
+  type: z.string().min(1, 'Type is required'),
+  adminFirstName: z.string().min(1, 'First name is required'),
+  adminLastName: z.string().min(1, 'Last name is required'),
+  adminEmail: z.string().email('Valid email required'),
+  adminPhone: z.string().optional(),
+})
+
+type FormData = z.infer<typeof schema>
+
 export default function RnecTenantsPage() {
   const queryClient = useQueryClient()
   const [addModalOpen, setAddModalOpen] = useState(false)
-  const [name, setName] = useState('')
-  const [code, setCode] = useState('')
-  const [type, setType] = useState('IRB')
 
   const { data: tenants, isLoading, isError } = useQuery({
     queryKey: ['tenants'],
     queryFn: () => tenantsApi.getTenants(),
   })
 
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormData>({
+    resolver: zodResolver(schema),
+  })
+
   const createMutation = useMutation({
-    mutationFn: () => tenantsApi.createTenant({ name, code, type }),
+    mutationFn: (d: FormData) =>
+      tenantsApi.createTenant({
+        name: d.name,
+        code: d.code,
+        type: d.type,
+        admin: {
+          firstName: d.adminFirstName,
+          lastName: d.adminLastName,
+          email: d.adminEmail,
+          phone: d.adminPhone,
+        },
+      }),
     onSuccess: () => {
-      toast.success('Tenant created successfully.')
+      toast.success('Tenant created. IRB Admin credentials sent to their email.')
       setAddModalOpen(false)
-      setName('')
-      setCode('')
-      setType('IRB')
+      reset()
       queryClient.invalidateQueries({ queryKey: ['tenants'] })
     },
     onError: (err: unknown) => {
@@ -78,7 +103,7 @@ export default function RnecTenantsPage() {
             <Loader centered label="Loading tenants..." />
           ) : isError ? (
             <EmptyState title="Failed to load" description="Please refresh." />
-          ) : !tenants?.length ? (
+          ) : !tenants?.data.length ? (
             <EmptyState
               icon={<Building2 className="h-8 w-8 text-slate-400" />}
               title="No tenants yet"
@@ -101,7 +126,7 @@ export default function RnecTenantsPage() {
                 </tr>
               </TableHead>
               <TableBody>
-                {tenants.map((tenant) => (
+                {tenants.data.map((tenant) => (
                   <TableRow key={tenant.id}>
                     <TableCell>
                       <span className="text-sm font-medium text-slate-900">{tenant.name}</span>
@@ -140,51 +165,97 @@ export default function RnecTenantsPage() {
         </CardBody>
       </Card>
 
-      {/* Add Tenant Modal */}
       <Modal
         open={addModalOpen}
-        onOpenChange={setAddModalOpen}
+        onOpenChange={(open) => { if (!open) { setAddModalOpen(false); reset() } }}
         title="Add New Tenant"
-        description="Create a new IRB institution on the platform."
-        size="md"
+        description="Create a new IRB institution. The admin will receive login credentials by email."
+        size="lg"
       >
-        <div className="space-y-4">
-          <Input
-            label="Institution Name"
-            required
-            placeholder="e.g. Kigali University IRB"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <Input
-            label="Institution Code"
-            required
-            placeholder="e.g. KIGALI-IRB (unique)"
-            value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
-          />
-          <Select
-            label="Type"
-            value={type}
-            onChange={(e) => setType(e.target.value)}
-            options={[
-              { value: 'IRB', label: 'Institutional Review Board' },
-              { value: 'ETHICS_COMMITTEE', label: 'Ethics Committee' },
-              { value: 'RESEARCH_UNIT', label: 'Research Unit' },
-            ]}
-          />
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setAddModalOpen(false)}>Cancel</Button>
-            <Button
-              variant="primary"
-              loading={createMutation.isPending}
-              disabled={!name.trim() || !code.trim()}
-              onClick={() => createMutation.mutate()}
-            >
+        <form onSubmit={handleSubmit((d) => createMutation.mutate(d))} noValidate className="space-y-5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Institution Details</p>
+            <div className="space-y-4">
+              <Input
+                label="Institution Name"
+                required
+                placeholder="e.g. Kigali University IRB"
+                error={errors.name?.message}
+                {...register('name')}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="Institution Code"
+                  required
+                  placeholder="e.g. KU-IRB"
+                  helperText="Unique identifier (max 12 chars)"
+                  error={errors.code?.message}
+                  {...register('code')}
+                />
+                <Select
+                  label="Type"
+                  required
+                  options={[
+                    { value: '', label: 'Select type...' },
+                    { value: 'IRB', label: 'Institutional Review Board' },
+                    { value: 'ETHICS_COMMITTEE', label: 'Ethics Committee' },
+                    { value: 'RESEARCH_UNIT', label: 'Research Unit' },
+                    { value: 'UNIVERSITY', label: 'University' },
+                    { value: 'HOSPITAL', label: 'Hospital' },
+                  ]}
+                  error={errors.type?.message}
+                  {...register('type')}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-100 pt-5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">IRB Admin Account</p>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="First name"
+                  required
+                  placeholder="Alice"
+                  error={errors.adminFirstName?.message}
+                  {...register('adminFirstName')}
+                />
+                <Input
+                  label="Last name"
+                  required
+                  placeholder="Nkusi"
+                  error={errors.adminLastName?.message}
+                  {...register('adminLastName')}
+                />
+              </div>
+              <Input
+                label="Admin email"
+                type="email"
+                required
+                placeholder="admin@institution.ac.rw"
+                error={errors.adminEmail?.message}
+                {...register('adminEmail')}
+              />
+              <Input
+                label="Phone number"
+                type="tel"
+                placeholder="+250 700 000 000"
+                error={errors.adminPhone?.message}
+                {...register('adminPhone')}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="outline" type="button" onClick={() => { setAddModalOpen(false); reset() }}>
+              Cancel
+            </Button>
+            <Button variant="primary" type="submit" loading={isSubmitting || createMutation.isPending}>
               Create Tenant
             </Button>
           </div>
-        </div>
+        </form>
       </Modal>
     </div>
   )

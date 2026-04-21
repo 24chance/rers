@@ -1,11 +1,9 @@
 'use client'
 
-import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useMutation } from '@tanstack/react-query'
-import { User } from 'lucide-react'
 import { Card, CardHeader, CardBody, CardFooter } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -13,6 +11,7 @@ import { Avatar } from '@/components/ui/avatar'
 import { toast } from '@/components/ui/toast'
 import { usersApi } from '@/lib/api/users.api'
 import { useAuthStore } from '@/store/auth.store'
+import { PasswordChangeCard } from '@/components/profile/password-change-card'
 
 const schema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -116,6 +115,8 @@ export default function ApplicantProfilePage() {
           </CardFooter>
         </form>
       </Card>
+
+      <PasswordChangeCard />
 
       {/* Account info */}
       <Card shadow="sm">

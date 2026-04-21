@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Plus, Building2, ToggleLeft, ToggleRight } from 'lucide-react'
-import { Card, CardHeader, CardBody } from '@/components/ui/card'
+import { Card, CardBody } from '@/components/ui/card'
 import { Table, TableHead, TableBody, TableRow, TableCell, TableHeader } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
@@ -32,6 +32,10 @@ const schema = z.object({
   code: z.string().min(2, 'Code is required').max(12, 'Code must be 12 characters or less').toUpperCase(),
   type: z.string().min(1, 'Institution type is required'),
   logoUrl: z.string().url('Must be a valid URL').or(z.literal('')).optional(),
+  adminFirstName: z.string().min(1, 'First name is required'),
+  adminLastName: z.string().min(1, 'Last name is required'),
+  adminEmail: z.string().email('Valid email required'),
+  adminPhone: z.string().optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -45,14 +49,26 @@ export default function SystemTenantsPage() {
     queryFn: tenantsApi.getTenants,
   })
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
   })
 
   const createMutation = useMutation({
-    mutationFn: tenantsApi.createTenant,
+    mutationFn: (d: FormData) =>
+      tenantsApi.createTenant({
+        name: d.name,
+        code: d.code,
+        type: d.type,
+        logoUrl: d.logoUrl || undefined,
+        admin: {
+          firstName: d.adminFirstName,
+          lastName: d.adminLastName,
+          email: d.adminEmail,
+          phone: d.adminPhone,
+        },
+      }),
     onSuccess: () => {
-      toast.success('Tenant created successfully.')
+      toast.success('Tenant created. IRB Admin credentials sent to their email.')
       setCreateModalOpen(false)
       reset()
       queryClient.invalidateQueries({ queryKey: ['system-tenants'] })
@@ -92,7 +108,7 @@ export default function SystemTenantsPage() {
             <Loader centered label="Loading tenants..." />
           ) : isError ? (
             <EmptyState title="Failed to load" description="Please refresh." />
-          ) : !tenants?.length ? (
+          ) : !tenants?.data.length ? (
             <EmptyState
               icon={<Building2 className="h-8 w-8 text-slate-400" />}
               title="No tenants"
@@ -115,7 +131,7 @@ export default function SystemTenantsPage() {
                 </tr>
               </TableHead>
               <TableBody>
-                {tenants.map((tenant) => (
+                {tenants.data.map((tenant) => (
                   <TableRow key={tenant.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -180,57 +196,95 @@ export default function SystemTenantsPage() {
 
       <Modal
         open={createModalOpen}
-        onOpenChange={setCreateModalOpen}
+        onOpenChange={(open) => { if (!open) { setCreateModalOpen(false); reset() } }}
         title="Add New Tenant"
-        description="Register a new IRB institution on the platform."
-        size="md"
+        description="Register a new IRB institution. The admin will receive login credentials by email."
+        size="lg"
       >
         <form
-          onSubmit={handleSubmit((d) =>
-            createMutation.mutate({
-              name: d.name,
-              code: d.code,
-              type: d.type,
-              logoUrl: d.logoUrl || undefined,
-            })
-          )}
+          onSubmit={handleSubmit((d) => createMutation.mutate(d))}
           noValidate
-          className="space-y-4"
+          className="space-y-5"
         >
-          <Input
-            label="Institution Name"
-            required
-            placeholder="e.g. University of Rwanda"
-            error={errors.name?.message}
-            {...register('name')}
-          />
-          <Input
-            label="Institution Code"
-            required
-            placeholder="e.g. UR-IRB"
-            helpText="Short unique identifier (max 12 chars)"
-            error={errors.code?.message}
-            {...register('code')}
-          />
-          <Select
-            label="Institution Type"
-            required
-            options={[{ value: '', label: 'Select type...' }, ...tenantTypeOptions]}
-            error={errors.type?.message}
-            {...register('type')}
-          />
-          <Input
-            label="Logo URL (optional)"
-            type="url"
-            placeholder="https://institution.ac.rw/logo.png"
-            error={errors.logoUrl?.message}
-            {...register('logoUrl')}
-          />
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" type="button" onClick={() => setCreateModalOpen(false)}>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Institution Details</p>
+            <div className="space-y-4">
+              <Input
+                label="Institution Name"
+                required
+                placeholder="e.g. University of Rwanda"
+                error={errors.name?.message}
+                {...register('name')}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="Institution Code"
+                  required
+                  placeholder="e.g. UR-IRB"
+                  helperText="Unique identifier (max 12 chars)"
+                  error={errors.code?.message}
+                  {...register('code')}
+                />
+                <Select
+                  label="Institution Type"
+                  required
+                  options={[{ value: '', label: 'Select type...' }, ...tenantTypeOptions]}
+                  error={errors.type?.message}
+                  {...register('type')}
+                />
+              </div>
+              <Input
+                label="Logo URL (optional)"
+                type="url"
+                placeholder="https://institution.ac.rw/logo.png"
+                error={errors.logoUrl?.message}
+                {...register('logoUrl')}
+              />
+            </div>
+          </div>
+
+          <div className="border-t border-slate-100 pt-5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">IRB Admin Account</p>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="First name"
+                  required
+                  placeholder="Alice"
+                  error={errors.adminFirstName?.message}
+                  {...register('adminFirstName')}
+                />
+                <Input
+                  label="Last name"
+                  required
+                  placeholder="Nkusi"
+                  error={errors.adminLastName?.message}
+                  {...register('adminLastName')}
+                />
+              </div>
+              <Input
+                label="Admin email"
+                type="email"
+                required
+                placeholder="admin@institution.ac.rw"
+                error={errors.adminEmail?.message}
+                {...register('adminEmail')}
+              />
+              <Input
+                label="Phone number"
+                type="tel"
+                placeholder="+250 700 000 000"
+                error={errors.adminPhone?.message}
+                {...register('adminPhone')}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="outline" type="button" onClick={() => { setCreateModalOpen(false); reset() }}>
               Cancel
             </Button>
-            <Button variant="primary" type="submit" loading={createMutation.isPending}>
+            <Button variant="primary" type="submit" loading={isSubmitting || createMutation.isPending}>
               Create Tenant
             </Button>
           </div>

@@ -1,62 +1,33 @@
 'use client'
 
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { MessageCircle, Send } from 'lucide-react'
+import { MessageCircle, Send, CheckCircle } from 'lucide-react'
 import { clsx } from 'clsx'
 import { format } from 'date-fns'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
-import { Avatar } from '@/components/ui/avatar'
 import { toast } from '@/components/ui/toast'
-import { api } from '@/lib/api/client'
-
-export interface QueryMessage {
-  id: string
-  applicationId: string
-  authorId: string
-  authorName: string
-  authorRole: string
-  message: string
-  isQuery: boolean
-  createdAt: string
-}
+import { queriesApi } from '@/lib/api/queries.api'
+import type { IrbQuery } from '@/lib/api/queries.api'
 
 export interface QueryThreadProps {
   applicationId: string
-  messages: QueryMessage[]
+  queries: IrbQuery[]
   canRespond?: boolean
 }
 
-const responseSchema = z.object({
-  message: z.string().min(10, 'Response must be at least 10 characters'),
-})
-
-type ResponseForm = z.infer<typeof responseSchema>
-
-async function submitQueryResponse(appId: string, message: string): Promise<QueryMessage> {
-  const res = await api.post<QueryMessage>(`/applications/${appId}/queries/respond`, { message })
-  return res.data
-}
-
-export function QueryThread({ applicationId, messages, canRespond = true }: QueryThreadProps) {
+export function QueryThread({ applicationId, queries, canRespond = false }: QueryThreadProps) {
   const queryClient = useQueryClient()
+  const [responseText, setResponseText] = useState<Record<string, string>>({})
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<ResponseForm>({ resolver: zodResolver(responseSchema) })
-
-  const mutation = useMutation({
-    mutationFn: (data: ResponseForm) => submitQueryResponse(applicationId, data.message),
-    onSuccess: () => {
+  const respondMutation = useMutation({
+    mutationFn: ({ queryId, text }: { queryId: string; text: string }) =>
+      queriesApi.respondToQuery(applicationId, queryId, text),
+    onSuccess: (_, { queryId }) => {
       toast.success('Response submitted.')
-      reset()
+      setResponseText((prev) => ({ ...prev, [queryId]: '' }))
+      queryClient.invalidateQueries({ queryKey: ['application-queries', applicationId] })
       queryClient.invalidateQueries({ queryKey: ['application', applicationId] })
     },
     onError: (err: unknown) => {
@@ -64,7 +35,7 @@ export function QueryThread({ applicationId, messages, canRespond = true }: Quer
     },
   })
 
-  if (!messages.length) {
+  if (!queries.length) {
     return (
       <div className="py-8 text-center">
         <MessageCircle className="h-8 w-8 text-slate-300 mx-auto mb-2" />
@@ -74,86 +45,106 @@ export function QueryThread({ applicationId, messages, canRespond = true }: Quer
   }
 
   return (
-    <div className="space-y-4">
-      {/* Messages */}
-      <div className="space-y-3">
-        {messages.map((msg) => {
-          const isIRB = !msg.isQuery === false || msg.authorRole === 'IRB_ADMIN'
-          return (
-            <div
-              key={msg.id}
-              className={clsx(
-                'flex gap-3',
-                msg.isQuery ? 'flex-row' : 'flex-row-reverse',
-              )}
-            >
-              <Avatar
-                fallback={msg.authorName.slice(0, 2)}
-                size="sm"
-                className="shrink-0"
-              />
-              <div className={clsx('max-w-[80%] space-y-1', msg.isQuery ? '' : 'items-end flex flex-col')}>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-slate-700">{msg.authorName}</span>
-                  <span
-                    className={clsx(
-                      'text-[10px] font-semibold rounded-full px-1.5 py-0.5',
-                      msg.isQuery
-                        ? 'bg-orange-100 text-orange-700'
-                        : 'bg-teal-100 text-teal-700',
-                    )}
-                  >
-                    {msg.isQuery ? 'QUERY' : 'RESPONSE'}
-                  </span>
-                </div>
-                <div
-                  className={clsx(
-                    'rounded-xl px-4 py-3 text-sm',
-                    msg.isQuery
-                      ? 'bg-orange-50 border border-orange-100 text-slate-800'
-                      : 'bg-rnec-teal/5 border border-rnec-teal/20 text-slate-800',
-                  )}
-                >
-                  {msg.message}
-                </div>
-                <p className="text-[10px] text-slate-400">
-                  {format(new Date(msg.createdAt), 'dd MMM yyyy, HH:mm')}
-                </p>
-              </div>
-            </div>
-          )
-        })}
-      </div>
+    <div className="space-y-6">
+      {queries.map((query) => {
+        const raisedByName = query.raisedBy
+          ? `${query.raisedBy.firstName} ${query.raisedBy.lastName}`
+          : 'IRB Admin'
+        const pendingText = responseText[query.id] ?? ''
+        const hasResponded = query.responses.length > 0
+        const showResponseForm = canRespond && !query.isResolved
 
-      {/* Response form */}
-      {canRespond && (
-        <div className="border-t border-slate-100 pt-4">
-          <form
-            onSubmit={handleSubmit((d) => mutation.mutate(d))}
-            noValidate
-            className="space-y-3"
-          >
-            <Textarea
-              label="Your Response"
-              placeholder="Type your response to the IRB query..."
-              error={errors.message?.message}
-              rows={4}
-              {...register('message')}
-            />
-            <div className="flex justify-end">
-              <Button
-                type="submit"
-                variant="primary"
-                size="sm"
-                loading={mutation.isPending}
-                leftIcon={<Send className="h-4 w-4" />}
-              >
-                Submit Response
-              </Button>
+        return (
+          <div key={query.id} className="rounded-xl border border-slate-200 overflow-hidden">
+            {/* Query header */}
+            <div className="bg-orange-50 border-b border-orange-100 px-4 py-3 flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2">
+                <MessageCircle className="h-4 w-4 text-orange-500 mt-0.5 shrink-0" />
+                <div>
+                  <span className="text-xs font-semibold text-orange-700 uppercase tracking-wide">
+                    Query from {raisedByName}
+                  </span>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {format(new Date(query.createdAt), 'dd MMM yyyy, HH:mm')}
+                  </p>
+                </div>
+              </div>
+              {query.isResolved && (
+                <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600 bg-emerald-50 rounded-full px-2 py-0.5">
+                  <CheckCircle className="h-3 w-3" />
+                  Resolved
+                </span>
+              )}
             </div>
-          </form>
-        </div>
-      )}
+
+            {/* Query question */}
+            <div className="px-4 py-3 bg-white">
+              <p className="text-sm text-slate-800">{query.question}</p>
+            </div>
+
+            {/* Responses */}
+            {query.responses.length > 0 && (
+              <div className="border-t border-slate-100">
+                {query.responses.map((res) => {
+                  const responderName = res.responder
+                    ? `${res.responder.firstName} ${res.responder.lastName}`
+                    : 'Applicant'
+                  return (
+                    <div
+                      key={res.id}
+                      className="px-4 py-3 bg-teal-50 border-b border-teal-100 last:border-b-0"
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-semibold text-rnec-teal">
+                          Response from {responderName}
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          {format(new Date(res.createdAt), 'dd MMM yyyy, HH:mm')}
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-800">{res.response}</p>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Response form */}
+            {showResponseForm && (
+              <div
+                className={clsx(
+                  'px-4 py-4 border-t',
+                  hasResponded ? 'border-teal-100 bg-teal-50/50' : 'border-slate-100 bg-slate-50',
+                )}
+              >
+                {hasResponded && (
+                  <p className="text-xs text-slate-500 mb-3">
+                    You can add another response if needed.
+                  </p>
+                )}
+                <Textarea
+                  placeholder="Type your response to this query..."
+                  value={pendingText}
+                  onChange={(e) => setResponseText((prev) => ({ ...prev, [query.id]: e.target.value }))}
+                  rows={3}
+                />
+                <div className="flex justify-end mt-2">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    loading={respondMutation.isPending && respondMutation.variables?.queryId === query.id}
+                    disabled={!pendingText.trim()}
+                    onClick={() => respondMutation.mutate({ queryId: query.id, text: pendingText })}
+                    leftIcon={<Send className="h-3.5 w-3.5" />}
+                  >
+                    Submit Response
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }

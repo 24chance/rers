@@ -3,7 +3,7 @@
 import { use, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
-import { ArrowLeft, CheckCircle, MessageSquare, UserCheck, Gavel } from 'lucide-react'
+import { ArrowLeft, CheckCircle, MessageSquare, Gavel, RotateCcw } from 'lucide-react'
 import * as Tabs from '@radix-ui/react-tabs'
 import { Card, CardHeader, CardBody } from '@/components/ui/card'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -20,21 +20,30 @@ import { DocumentUploader } from '@/components/upload/document-uploader'
 import { applicationsApi } from '@/lib/api/applications.api'
 import { reviewsApi } from '@/lib/api/reviews.api'
 import { decisionsApi } from '@/lib/api/decisions.api'
+import { queriesApi } from '@/lib/api/queries.api'
 import { ApplicationStatus, DecisionType } from '@/types'
 import { api } from '@/lib/api/client'
 import { format } from 'date-fns'
 import { clsx } from 'clsx'
+import { QueryThread } from '@/components/workflow/query-thread'
 
 interface Props {
   params: Promise<{ id: string }>
 }
 
-async function screenApplication(appId: string, approve: boolean, queryText?: string) {
-  if (approve) {
-    return api.post(`/applications/${appId}/screen`, { approved: true })
-  } else {
-    return api.post(`/applications/${appId}/queries`, { message: queryText })
-  }
+async function advanceToScreening(appId: string) {
+  return api.patch(`/applications/${appId}/status`, {
+    toStatus: 'SCREENING',
+    reason: 'Application moved to screening by IRB admin',
+  })
+}
+
+async function screenApplication(appId: string, action: 'REQUEST_PAYMENT' | 'RAISE_QUERY' | 'PASS', reason?: string) {
+  return api.post(`/applications/${appId}/screen`, { action, reason })
+}
+
+async function raiseQuery(appId: string, question: string) {
+  return api.post(`/applications/${appId}/queries`, { question })
 }
 
 export default function IrbApplicationDetailPage({ params }: Props) {
@@ -82,17 +91,62 @@ export default function IrbApplicationDetailPage({ params }: Props) {
     retry: false,
   })
 
-  const screenMutation = useMutation({
-    mutationFn: (approve: boolean) => screenApplication(id, approve, queryText),
+  const { data: queries = [] } = useQuery({
+    queryKey: ['application-queries', id],
+    queryFn: () => queriesApi.getQueries(id),
+    enabled: !!id && activeTab === 'queries',
+  })
+
+  const rescreenMutation = useMutation({
+    mutationFn: () =>
+      api.patch(`/applications/${id}/status`, {
+        toStatus: ApplicationStatus.SCREENING,
+        reason: 'Re-screening after applicant response',
+      }),
     onSuccess: () => {
-      toast.success(queryText ? 'Query raised.' : 'Application screened — payment invoice generated.')
+      toast.success('Application moved back to screening.')
+      queryClient.invalidateQueries({ queryKey: ['application', id] })
+    },
+    onError: (err: unknown) => {
+      toast.error((err as { message?: string })?.message ?? 'Failed to re-screen.')
+    },
+  })
+
+  const screenMutation = useMutation({
+    mutationFn: async (action: 'REQUEST_PAYMENT' | 'RAISE_QUERY' | 'PASS') => {
+      if (application?.status === ApplicationStatus.SUBMITTED) {
+        await advanceToScreening(id)
+      }
+      return screenApplication(id, action, queryText || undefined)
+    },
+    onSuccess: (_, action) => {
+      toast.success(action === 'REQUEST_PAYMENT'
+        ? 'Application screened — payment invoice generated.'
+        : action === 'RAISE_QUERY'
+          ? 'Query raised.'
+          : 'Application passed to review.')
       setScreenModalOpen(false)
       setQueryModalOpen(false)
       setQueryText('')
       queryClient.invalidateQueries({ queryKey: ['application', id] })
+      queryClient.invalidateQueries({ queryKey: ['application-queries', id] })
     },
     onError: (err: unknown) => {
       toast.error((err as { message?: string })?.message ?? 'Action failed.')
+    },
+  })
+
+  const queryMutation = useMutation({
+    mutationFn: () => raiseQuery(id, queryText),
+    onSuccess: () => {
+      toast.success('Query raised.')
+      setQueryModalOpen(false)
+      setQueryText('')
+      queryClient.invalidateQueries({ queryKey: ['application', id] })
+      queryClient.invalidateQueries({ queryKey: ['application-queries', id] })
+    },
+    onError: (err: unknown) => {
+      toast.error((err as { message?: string })?.message ?? 'Failed to raise query.')
     },
   })
 
@@ -169,6 +223,17 @@ export default function IrbApplicationDetailPage({ params }: Props) {
                 Screen Application
               </Button>
             )}
+            {application.status === ApplicationStatus.RESPONSE_RECEIVED && (
+              <Button
+                variant="primary"
+                size="sm"
+                loading={rescreenMutation.isPending}
+                onClick={() => rescreenMutation.mutate()}
+                leftIcon={<RotateCcw className="h-4 w-4" />}
+              >
+                Re-screen Application
+              </Button>
+            )}
             {application.status === ApplicationStatus.UNDER_REVIEW && (
               <>
                 <Button
@@ -204,6 +269,14 @@ export default function IrbApplicationDetailPage({ params }: Props) {
           <Tabs.Trigger value="overview" className={tabClass('overview')}>Overview</Tabs.Trigger>
           <Tabs.Trigger value="documents" className={tabClass('documents')}>Documents</Tabs.Trigger>
           <Tabs.Trigger value="reviewers" className={tabClass('reviewers')}>Reviewers</Tabs.Trigger>
+          <Tabs.Trigger value="queries" className={tabClass('queries')}>
+            Queries
+            {queries.length > 0 && (
+              <span className="ml-1.5 rounded-full bg-orange-100 text-orange-700 text-[10px] font-bold px-1.5 py-0.5">
+                {queries.length}
+              </span>
+            )}
+          </Tabs.Trigger>
         </Tabs.List>
 
         <Tabs.Content value="overview" className="pt-6 space-y-6">
@@ -265,6 +338,21 @@ export default function IrbApplicationDetailPage({ params }: Props) {
             </CardBody>
           </Card>
         </Tabs.Content>
+
+        <Tabs.Content value="queries" className="pt-6">
+          <Card shadow="sm">
+            <CardHeader>
+              <h2 className="text-base font-semibold">Queries &amp; Responses</h2>
+            </CardHeader>
+            <CardBody>
+              <QueryThread
+                applicationId={id}
+                queries={queries}
+                canRespond={false}
+              />
+            </CardBody>
+          </Card>
+        </Tabs.Content>
       </Tabs.Root>
 
       {/* Screen modal */}
@@ -285,7 +373,7 @@ export default function IrbApplicationDetailPage({ params }: Props) {
               variant="primary"
               className="flex-1"
               loading={screenMutation.isPending}
-              onClick={() => screenMutation.mutate(true)}
+              onClick={() => screenMutation.mutate('REQUEST_PAYMENT')}
               leftIcon={<CheckCircle className="h-4 w-4" />}
             >
               Approve & Generate Invoice
@@ -293,6 +381,7 @@ export default function IrbApplicationDetailPage({ params }: Props) {
             <Button
               variant="outline"
               className="flex-1"
+              disabled={screenMutation.isPending}
               onClick={() => { setScreenModalOpen(false); setQueryModalOpen(true) }}
               leftIcon={<MessageSquare className="h-4 w-4" />}
             >
@@ -323,9 +412,15 @@ export default function IrbApplicationDetailPage({ params }: Props) {
             <Button variant="outline" onClick={() => setQueryModalOpen(false)}>Cancel</Button>
             <Button
               variant="primary"
-              loading={screenMutation.isPending}
+              loading={screenMutation.isPending || queryMutation.isPending}
               disabled={!queryText.trim()}
-              onClick={() => screenMutation.mutate(false)}
+              onClick={() => {
+                if (application?.status === ApplicationStatus.SUBMITTED) {
+                  screenMutation.mutate('RAISE_QUERY')
+                } else {
+                  queryMutation.mutate()
+                }
+              }}
               leftIcon={<MessageSquare className="h-4 w-4" />}
             >
               Send Query

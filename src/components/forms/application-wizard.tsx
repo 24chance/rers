@@ -5,6 +5,7 @@ import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useRouter } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, Save, Send, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardHeader, CardBody, CardFooter } from '@/components/ui/card'
 import { DocumentUploader } from '@/components/upload/document-uploader'
 import { applicationsApi } from '@/lib/api/applications.api'
+import { tenantsApi } from '@/lib/api/tenants.api'
 import { ApplicationType } from '@/types'
 import type { ApplicationDocument } from '@/types'
 import { toast } from '@/components/ui/toast'
@@ -24,6 +26,7 @@ const step1Schema = z.object({
   title: z.string().min(5, 'Title must be at least 5 characters'),
   type: z.nativeEnum(ApplicationType),
   studyDuration: z.string().min(1, 'Study duration is required'),
+  tenantId: z.string().min(1, 'Please select the institution to review your application'),
 })
 
 const step2Schema = z.object({
@@ -71,6 +74,7 @@ const STEPS = [
 ]
 
 type WizardData = {
+  tenantId: string
   title: string
   type: ApplicationType
   studyDuration: string
@@ -90,6 +94,7 @@ type WizardData = {
 }
 
 const defaultData: WizardData = {
+  tenantId: '',
   title: '',
   type: ApplicationType.FULL_BOARD,
   studyDuration: '',
@@ -134,8 +139,16 @@ export function ApplicationWizard({ editingId, initialData }: ApplicationWizardP
   const [isSaving, setIsSaving] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  const { data: tenants } = useQuery({
+    queryKey: ['tenants'],
+    queryFn: () => tenantsApi.getTenants(),
+  })
+
+  const tenantOptions = tenants?.map((t) => ({ value: t.id, label: t.name })) ?? []
+
   const methods = useForm<WizardData>({
-    resolver: zodResolver(stepSchemas[currentStep]),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(stepSchemas[currentStep] as any),
     defaultValues: formData,
     mode: 'onTouched',
   })
@@ -146,6 +159,7 @@ export function ApplicationWizard({ editingId, initialData }: ApplicationWizardP
       const payload = {
         title: merged.title,
         type: merged.type,
+        tenantId: merged.tenantId || undefined,
         formData: merged as Record<string, unknown>,
       }
       try {
@@ -284,6 +298,14 @@ export function ApplicationWizard({ editingId, initialData }: ApplicationWizardP
             {/* STEP 1: Basic Info */}
             {currentStep === 0 && (
               <form onSubmit={methods.handleSubmit(handleNext)} noValidate className="space-y-5" id="wizard-form">
+                <Select
+                  label="Reviewing Institution (IRB)"
+                  required
+                  options={tenantOptions}
+                  placeholder="Select the institution that will review your application"
+                  error={methods.formState.errors.tenantId?.message}
+                  {...methods.register('tenantId')}
+                />
                 <Input
                   label="Study Title"
                   required
@@ -469,6 +491,10 @@ export function ApplicationWizard({ editingId, initialData }: ApplicationWizardP
                   Review your application details before submitting. Once submitted, you cannot edit the application.
                 </p>
                 <div className="divide-y divide-slate-100">
+                  <ReviewSection
+                    label="Reviewing Institution"
+                    value={tenants?.find((t) => t.id === formData.tenantId)?.name ?? formData.tenantId}
+                  />
                   <ReviewSection label="Study Title" value={formData.title} />
                   <ReviewSection label="Type" value={formData.type.replace(/_/g, ' ')} />
                   <ReviewSection label="Duration" value={formData.studyDuration} />
