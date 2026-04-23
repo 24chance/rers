@@ -42,6 +42,11 @@ export interface AdminDashboard {
     actorName: string
     createdAt: string
   }>
+  reviewerWorkload: Array<{
+    reviewerId: string
+    name: string
+    assignedCount: number
+  }>
 }
 
 export type DashboardData = ApplicantDashboard | ReviewerDashboard | AdminDashboard
