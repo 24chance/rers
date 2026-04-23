@@ -23,6 +23,7 @@ export interface ReviewerDashboard {
     id: string
     applicationId: string
     applicationTitle: string
+    referenceNumber?: string
     deadline?: string
     isComplete: boolean
   }>
