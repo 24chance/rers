@@ -1,45 +1,50 @@
 import { api } from './client'
-import type { Invoice } from '@/types'
+import type { Payment } from '@/types'
 
-export interface VerifyPaymentDto {
-  transactionReference: string
-  proofOfPayment?: File
+interface Envelope<T> {
+  data: T
+}
+
+export interface CreatePaymentDto {
+  amount: number
+  method?: string
+  referenceNumber?: string
   notes?: string
 }
 
-export interface Payment {
-  id: string
-  applicationId: string
-  invoiceId: string
-  transactionReference: string
-  amount: number
-  currency: string
-  status: string
+export interface VerifyPaymentDto {
   notes?: string
-  verifiedAt?: string
-  createdAt: string
 }
 
 export const paymentsApi = {
-  getInvoice: async (appId: string): Promise<Invoice> => {
-    const response = await api.get<Invoice>(`/applications/${appId}/invoice`)
-    return response.data
+  getPaymentsByInvoice: async (invoiceId: string): Promise<Payment[]> => {
+    const response = await api.get<Envelope<Payment[]>>(
+      `/invoices/${invoiceId}/payments`,
+    )
+    return response.data.data
   },
 
-  getPayments: async (appId: string): Promise<Payment[]> => {
-    const response = await api.get<Payment[]>(`/applications/${appId}/payments`)
-    return response.data
+  getPayments: async (): Promise<Payment[]> => {
+    const response = await api.get<Envelope<Payment[]>>('/payments')
+    return response.data.data
+  },
+
+  createPayment: async (
+    invoiceId: string,
+    dto: CreatePaymentDto,
+  ): Promise<Payment> => {
+    const response = await api.post<Envelope<Payment>>(
+      `/invoices/${invoiceId}/payments`,
+      dto,
+    )
+    return response.data.data
   },
 
   verifyPayment: async (paymentId: string, dto: VerifyPaymentDto): Promise<Payment> => {
-    const formData = new FormData()
-    formData.append('transactionReference', dto.transactionReference)
-    if (dto.notes) formData.append('notes', dto.notes)
-    if (dto.proofOfPayment) formData.append('proofOfPayment', dto.proofOfPayment)
-
-    const response = await api.patch<Payment>(`/payments/${paymentId}/verify`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
-    return response.data
+    const response = await api.patch<Envelope<Payment>>(
+      `/payments/${paymentId}/verify`,
+      dto,
+    )
+    return response.data.data
   },
 }

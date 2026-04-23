@@ -25,7 +25,7 @@ const schema = z.object({
   progressSummary: z.string().min(10),
 })
 
-type FormData = z.infer<typeof schema>
+type FormData = z.input<typeof schema>
 
 export default function ApplicantRenewalsPage() {
   const [modalOpen, setModalOpen] = useState(false)
@@ -44,7 +44,7 @@ export default function ApplicantRenewalsPage() {
   const mutation = useMutation({
     mutationFn: (data: FormData) =>
       monitoringApi.createRenewal(data.applicationId, {
-        renewalPeriodMonths: data.renewalPeriodMonths,
+        renewalPeriodMonths: Number(data.renewalPeriodMonths),
         justification: data.justification,
         progressSummary: data.progressSummary,
       }),

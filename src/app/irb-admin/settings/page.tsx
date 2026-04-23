@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
+import type { Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Settings } from 'lucide-react'
@@ -76,7 +77,7 @@ export default function IrbSettingsPage() {
   })
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormData>,
     values: settings,
   })
 
@@ -190,7 +191,7 @@ export default function IrbSettingsPage() {
                   min={1}
                   max={90}
                   required
-                  helpText="Number of days reviewers have to complete their reviews"
+                  helperText="Number of days reviewers have to complete their reviews"
                   error={errors.review?.defaultReviewDays?.message}
                   {...register('review.defaultReviewDays')}
                 />
@@ -209,7 +210,7 @@ export default function IrbSettingsPage() {
                   min={1}
                   max={10}
                   required
-                  helpText="Minimum number of completed reviews before a decision can be made"
+                  helperText="Minimum number of completed reviews before a decision can be made"
                   error={errors.review?.requireMinimumReviewers?.message}
                   {...register('review.requireMinimumReviewers')}
                 />

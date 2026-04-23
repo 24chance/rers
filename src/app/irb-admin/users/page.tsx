@@ -115,7 +115,7 @@ export default function IrbUsersPage() {
         <CardBody className="p-0">
           {isLoading ? (
             <Loader centered label="Loading users..." />
-          ) : !data?.data.data.length ? (
+          ) : !data?.data.length ? (
             <EmptyState icon={<UserPlus className="h-8 w-8 text-slate-400" />} title="No users found" description="Create the first user for your institution."
               action={<Button variant="primary" leftIcon={<UserPlus className="h-4 w-4" />} onClick={() => setCreateModalOpen(true)}>Create User</Button>}
             />
@@ -132,13 +132,13 @@ export default function IrbUsersPage() {
                   </tr>
                 </TableHead>
                 <TableBody>
-                  {data.data.data.map((user) => (
+                  {data.data.map((user) => (
                     <TableRow key={user.id}>
                       <TableCell><span className="text-sm font-medium text-slate-900">{user.firstName} {user.lastName}</span></TableCell>
                       <TableCell><span className="text-sm text-slate-600">{user.email}</span></TableCell>
                       <TableCell>
                         <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">
-                          {user.role.name.replace(/_/g, ' ')}
+                          {user.role.replace(/_/g, ' ')}
                         </span>
                       </TableCell>
                       <TableCell>

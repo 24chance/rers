@@ -3,14 +3,13 @@
 import { use, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
-import { ArrowLeft, CheckCircle, MessageSquare, Gavel, RotateCcw } from 'lucide-react'
+import { ArrowLeft, CheckCircle, MessageSquare, RotateCcw } from 'lucide-react'
 import * as Tabs from '@radix-ui/react-tabs'
 import { Card, CardHeader, CardBody } from '@/components/ui/card'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
 import { Textarea } from '@/components/ui/textarea'
-import { Select } from '@/components/ui/select'
 import { Loader } from '@/components/ui/loader'
 import { toast } from '@/components/ui/toast'
 import { StatusTimeline } from '@/components/workflow/status-timeline'
@@ -21,7 +20,7 @@ import { applicationsApi } from '@/lib/api/applications.api'
 import { reviewsApi } from '@/lib/api/reviews.api'
 import { decisionsApi } from '@/lib/api/decisions.api'
 import { queriesApi } from '@/lib/api/queries.api'
-import { ApplicationStatus, DecisionType } from '@/types'
+import { ApplicationStatus } from '@/types'
 import { api } from '@/lib/api/client'
 import { format } from 'date-fns'
 import { clsx } from 'clsx'
@@ -54,11 +53,7 @@ export default function IrbApplicationDetailPage({ params }: Props) {
   // Modals
   const [screenModalOpen, setScreenModalOpen] = useState(false)
   const [queryModalOpen, setQueryModalOpen] = useState(false)
-  const [decisionModalOpen, setDecisionModalOpen] = useState(false)
   const [queryText, setQueryText] = useState('')
-  const [decisionType, setDecisionType] = useState<DecisionType>(DecisionType.APPROVED)
-  const [decisionRationale, setDecisionRationale] = useState('')
-  const [decisionConditions, setDecisionConditions] = useState('')
 
   const { data: application, isLoading } = useQuery({
     queryKey: ['application', id],
@@ -121,7 +116,7 @@ export default function IrbApplicationDetailPage({ params }: Props) {
     },
     onSuccess: (_, action) => {
       toast.success(action === 'REQUEST_PAYMENT'
-        ? 'Application screened — payment invoice generated.'
+        ? 'Application screened and sent to finance for invoicing.'
         : action === 'RAISE_QUERY'
           ? 'Query raised.'
           : 'Application passed to review.')
@@ -147,24 +142,6 @@ export default function IrbApplicationDetailPage({ params }: Props) {
     },
     onError: (err: unknown) => {
       toast.error((err as { message?: string })?.message ?? 'Failed to raise query.')
-    },
-  })
-
-  const decisionMutation = useMutation({
-    mutationFn: () =>
-      decisionsApi.recordDecision(id, {
-        type: decisionType,
-        rationale: decisionRationale,
-        conditions: decisionConditions || undefined,
-      }),
-    onSuccess: () => {
-      toast.success('Decision recorded.')
-      setDecisionModalOpen(false)
-      queryClient.invalidateQueries({ queryKey: ['application', id] })
-      queryClient.invalidateQueries({ queryKey: ['decision', id] })
-    },
-    onError: (err: unknown) => {
-      toast.error((err as { message?: string })?.message ?? 'Failed to record decision.')
     },
   })
 
@@ -235,24 +212,14 @@ export default function IrbApplicationDetailPage({ params }: Props) {
               </Button>
             )}
             {application.status === ApplicationStatus.UNDER_REVIEW && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setQueryModalOpen(true)}
-                  leftIcon={<MessageSquare className="h-4 w-4" />}
-                >
-                  Raise Query
-                </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => setDecisionModalOpen(true)}
-                  leftIcon={<Gavel className="h-4 w-4" />}
-                >
-                  Record Decision
-                </Button>
-              </>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setQueryModalOpen(true)}
+                leftIcon={<MessageSquare className="h-4 w-4" />}
+              >
+                Raise Query
+              </Button>
             )}
           </div>
         </div>
@@ -365,7 +332,7 @@ export default function IrbApplicationDetailPage({ params }: Props) {
       >
         <div className="space-y-4">
           <p className="text-sm text-slate-600">
-            Screening this application will generate a payment invoice for the applicant.
+            Screening this application will move it to the finance queue for invoicing.
             Alternatively, you can raise a query if more information is needed.
           </p>
           <div className="flex gap-3">
@@ -376,7 +343,7 @@ export default function IrbApplicationDetailPage({ params }: Props) {
               onClick={() => screenMutation.mutate('REQUEST_PAYMENT')}
               leftIcon={<CheckCircle className="h-4 w-4" />}
             >
-              Approve & Generate Invoice
+              Send to Finance
             </Button>
             <Button
               variant="outline"
@@ -424,59 +391,6 @@ export default function IrbApplicationDetailPage({ params }: Props) {
               leftIcon={<MessageSquare className="h-4 w-4" />}
             >
               Send Query
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Decision modal */}
-      <Modal
-        open={decisionModalOpen}
-        onOpenChange={setDecisionModalOpen}
-        title="Record Decision"
-        description="Record the IRB decision for this application."
-        size="lg"
-      >
-        <div className="space-y-4">
-          <Select
-            label="Decision Type"
-            required
-            value={decisionType}
-            onChange={(e) => setDecisionType(e.target.value as DecisionType)}
-            options={[
-              { value: DecisionType.APPROVED, label: 'Approved' },
-              { value: DecisionType.CONDITIONALLY_APPROVED, label: 'Conditionally Approved' },
-              { value: DecisionType.REJECTED, label: 'Rejected' },
-              { value: DecisionType.DEFERRED, label: 'Deferred' },
-            ]}
-          />
-          <Textarea
-            label="Rationale"
-            required
-            placeholder="Provide the rationale for this decision..."
-            value={decisionRationale}
-            onChange={(e) => setDecisionRationale(e.target.value)}
-            rows={4}
-          />
-          {decisionType === DecisionType.CONDITIONALLY_APPROVED && (
-            <Textarea
-              label="Conditions"
-              placeholder="List the conditions that must be met..."
-              value={decisionConditions}
-              onChange={(e) => setDecisionConditions(e.target.value)}
-              rows={3}
-            />
-          )}
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setDecisionModalOpen(false)}>Cancel</Button>
-            <Button
-              variant="primary"
-              loading={decisionMutation.isPending}
-              disabled={!decisionRationale.trim()}
-              onClick={() => decisionMutation.mutate()}
-              leftIcon={<Gavel className="h-4 w-4" />}
-            >
-              Record Decision
             </Button>
           </div>
         </div>

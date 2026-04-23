@@ -48,7 +48,9 @@ export type DashboardData = ApplicantDashboard | ReviewerDashboard | AdminDashbo
 
 export const dashboardsApi = {
   getDashboard: async (role: UserRole): Promise<DashboardData> => {
-    const response = await api.get<DashboardData>(`/dashboards/${role.toLowerCase()}`)
-    return response.data
+    const response = await api.get<{ data: DashboardData }>(
+      `/dashboards/${role.toLowerCase()}`,
+    )
+    return response.data.data
   },
 }

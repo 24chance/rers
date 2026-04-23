@@ -15,7 +15,7 @@ import { Card, CardHeader, CardBody, CardFooter } from '@/components/ui/card'
 import { DocumentUploader } from '@/components/upload/document-uploader'
 import { applicationsApi } from '@/lib/api/applications.api'
 import { tenantsApi } from '@/lib/api/tenants.api'
-import { ApplicationType } from '@/types'
+import { ApplicationStatus, ApplicationType } from '@/types'
 import type { ApplicationDocument } from '@/types'
 import { toast } from '@/components/ui/toast'
 import { clsx } from 'clsx'
@@ -128,14 +128,53 @@ const stepSchemas = [
 interface ApplicationWizardProps {
   editingId?: string
   initialData?: Partial<WizardData>
+  initialDocuments?: ApplicationDocument[]
+  submissionMode?: 'submit_application' | 'save_only'
+  onSaveRedirectPath?: string
+  editableStatus?: ApplicationStatus | null
 }
 
-export function ApplicationWizard({ editingId, initialData }: ApplicationWizardProps) {
+function buildApplicationPayload(data: Partial<WizardData>) {
+  const coInvestigators = data.coInvestigators
+    ?.split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+
+  return {
+    title: data.title ?? '',
+    type: data.type ?? ApplicationType.FULL_BOARD,
+    ...(data.tenantId ? { tenantId: data.tenantId } : {}),
+    ...(data.principalInvestigator ? { principalInvestigator: data.principalInvestigator } : {}),
+    ...(coInvestigators?.length ? { coInvestigators } : {}),
+    ...(data.studyDuration ? { studyDuration: data.studyDuration } : {}),
+    ...(data.studyStartDate ? { studyStartDate: data.studyStartDate } : {}),
+    ...(data.studyEndDate ? { studyEndDate: data.studyEndDate } : {}),
+    ...(data.population ? { population: data.population } : {}),
+    ...(typeof data.sampleSize === 'number' && data.sampleSize > 0
+      ? { sampleSize: data.sampleSize }
+      : {}),
+    ...(data.methodology ? { methodology: data.methodology } : {}),
+    ...(data.ethicsStatement ? { ethicsStatement: data.ethicsStatement } : {}),
+    ...(data.consentDescription ? { consentDescription: data.consentDescription } : {}),
+    ...(data.fundingSource ? { fundingSource: data.fundingSource } : {}),
+    ...(typeof data.budget === 'number' && data.budget >= 0 ? { budget: data.budget } : {}),
+    formData: data as Record<string, unknown>,
+  }
+}
+
+export function ApplicationWizard({
+  editingId,
+  initialData,
+  initialDocuments = [],
+  submissionMode = 'submit_application',
+  onSaveRedirectPath = '/applicant/applications',
+  editableStatus,
+}: ApplicationWizardProps) {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(0)
   const [savedId, setSavedId] = useState<string | null>(editingId ?? null)
   const [formData, setFormData] = useState<WizardData>({ ...defaultData, ...initialData })
-  const [documents, setDocuments] = useState<ApplicationDocument[]>([])
+  const [documents, setDocuments] = useState<ApplicationDocument[]>(initialDocuments)
   const [isSaving, setIsSaving] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -156,15 +195,10 @@ export function ApplicationWizard({ editingId, initialData }: ApplicationWizardP
   const saveDraft = useCallback(
     async (data: Partial<WizardData>) => {
       const merged = { ...formData, ...data }
-      const payload = {
-        title: merged.title,
-        type: merged.type,
-        tenantId: merged.tenantId || undefined,
-        formData: merged as Record<string, unknown>,
-      }
+      const payload = buildApplicationPayload(merged)
       try {
         if (savedId) {
-          await applicationsApi.updateApplication(savedId, { formData: merged as Record<string, unknown> })
+          await applicationsApi.updateApplication(savedId, payload)
         } else {
           const created = await applicationsApi.createApplication(payload)
           setSavedId(created.id)
@@ -214,6 +248,22 @@ export function ApplicationWizard({ editingId, initialData }: ApplicationWizardP
     }
     setIsSubmitting(true)
     try {
+      if (submissionMode === 'save_only') {
+        const ok = await saveDraft(methods.getValues())
+
+        if (!ok) {
+          return
+        }
+
+        toast.success(
+          editableStatus === ApplicationStatus.QUERY_RAISED
+            ? 'Application changes saved. Respond to the query to resubmit it for screening.'
+            : 'Application changes saved successfully.',
+        )
+        router.push(onSaveRedirectPath)
+        return
+      }
+
       await applicationsApi.submitApplication(savedId)
       toast.success('Application submitted successfully!')
       router.push('/applicant/applications')
@@ -554,7 +604,7 @@ export function ApplicationWizard({ editingId, initialData }: ApplicationWizardP
                   onClick={handleSubmit}
                   leftIcon={<Send className="h-4 w-4" />}
                 >
-                  Submit Application
+                  {submissionMode === 'save_only' ? 'Save Changes' : 'Submit Application'}
                 </Button>
               )}
             </div>

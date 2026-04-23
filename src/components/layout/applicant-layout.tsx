@@ -26,6 +26,8 @@ import { authApi } from '@/lib/api/auth.api'
 import { toast } from '@/components/ui/toast'
 import { useQuery } from '@tanstack/react-query'
 import { notificationsApi } from '@/lib/api/notifications.api'
+import { tenantsApi } from '@/lib/api/tenants.api'
+import { Building2 } from 'lucide-react'
 
 interface ApplicantLayoutProps {
   children: React.ReactNode
@@ -52,6 +54,12 @@ export function ApplicantLayout({ children }: ApplicantLayoutProps) {
     queryKey: ['notifications', 'unread-count'],
     queryFn: () => notificationsApi.getNotifications({ isRead: false, limit: 1 }),
     refetchInterval: 30000,
+  })
+
+  const { data: tenant } = useQuery({
+    queryKey: ['tenant', user?.tenantId],
+    queryFn: () => tenantsApi.getTenant(user!.tenantId!),
+    enabled: !!user?.tenantId,
   })
 
   const unreadCount = notifications?.meta?.total ?? 0
@@ -144,6 +152,12 @@ export function ApplicantLayout({ children }: ApplicantLayoutProps) {
               <Menu className="h-5 w-5" />
             </button>
             <Breadcrumb items={[]} showHome={false} />
+            {tenant && (
+              <div className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-50 border border-slate-200 px-3 py-1.5">
+                <Building2 className="h-3.5 w-3.5 text-rnec-navy/60 shrink-0" />
+                <span className="text-xs font-medium text-slate-700 truncate max-w-45">{tenant.name}</span>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2">

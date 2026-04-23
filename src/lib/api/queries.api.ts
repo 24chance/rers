@@ -41,10 +41,10 @@ export const queriesApi = {
     queryId: string,
     responseText: string,
   ): Promise<IrbQueryResponse> => {
-    const response = await api.post<IrbQueryResponse>(
+    const response = await api.post<{ data: IrbQueryResponse }>(
       `/applications/${applicationId}/queries/${queryId}/respond`,
       { response: responseText },
     )
-    return response.data
+    return response.data.data
   },
 }

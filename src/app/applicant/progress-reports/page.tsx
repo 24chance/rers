@@ -28,7 +28,7 @@ const schema = z.object({
   protocolDeviations: z.string().optional(),
 })
 
-type FormData = z.infer<typeof schema>
+type FormData = z.input<typeof schema>
 
 export default function ProgressReportsPage() {
   const [modalOpen, setModalOpen] = useState(false)
@@ -47,7 +47,7 @@ export default function ProgressReportsPage() {
       monitoringApi.createProgressReport(data.applicationId, {
         reportingPeriodStart: data.reportingPeriodStart,
         reportingPeriodEnd: data.reportingPeriodEnd,
-        participantsEnrolled: data.participantsEnrolled,
+        participantsEnrolled: Number(data.participantsEnrolled),
         summary: data.summary,
         adverseEvents: data.adverseEvents,
         protocolDeviations: data.protocolDeviations,

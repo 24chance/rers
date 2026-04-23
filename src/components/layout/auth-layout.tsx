@@ -20,7 +20,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
         {/* Tagline */}
         <div className="space-y-4">
           <blockquote className="text-white text-2xl font-light leading-relaxed">
-            "Advancing ethical research through rigorous, transparent, and efficient review processes."
+            &ldquo;Advancing ethical research through rigorous, transparent, and efficient review processes.&rdquo;
           </blockquote>
           <div className="flex gap-2 mt-6">
             <div className="h-1 w-12 rounded-full bg-rnec-gold" />

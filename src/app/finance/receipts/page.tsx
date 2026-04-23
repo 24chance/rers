@@ -1,120 +1,64 @@
 'use client'
 
-import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Receipt, Download } from 'lucide-react'
-import { Card, CardHeader, CardBody } from '@/components/ui/card'
-import { Table, TableHead, TableBody, TableRow, TableCell, TableHeader } from '@/components/ui/table'
-import { Button } from '@/components/ui/button'
+import { Receipt as ReceiptIcon } from 'lucide-react'
+import { format } from 'date-fns'
+import { Card, CardBody, CardHeader } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Loader } from '@/components/ui/loader'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Pagination } from '@/components/ui/pagination'
-import { toast } from '@/components/ui/toast'
-import { api } from '@/lib/api/client'
-import { format } from 'date-fns'
-import { clsx } from 'clsx'
-
-interface PaymentReceipt {
-  id: string
-  receiptNumber: string
-  applicationId: string
-  referenceNumber: string
-  payerName: string
-  payerEmail: string
-  amount: number
-  currency: string
-  transactionReference: string
-  verifiedAt: string
-  verifiedBy: string
-}
-
-interface PaginatedReceipts {
-  data: PaymentReceipt[]
-  meta: {
-    total: number
-    page: number
-    limit: number
-    totalPages: number
-    hasNextPage: boolean
-    hasPreviousPage: boolean
-  }
-}
-
-async function getReceipts(page: number): Promise<PaginatedReceipts> {
-  const res = await api.get<PaginatedReceipts>('/payments/receipts', { params: { page, limit: 20 } })
-  return res.data
-}
-
-async function downloadReceipt(receiptId: string): Promise<Blob> {
-  const res = await api.get<Blob>(`/payments/receipts/${receiptId}/pdf`, { responseType: 'blob' })
-  return res.data
-}
+import { receiptsApi } from '@/lib/api/receipts.api'
 
 export default function FinanceReceiptsPage() {
-  const [page, setPage] = useState(1)
-
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ['finance-receipts', page],
-    queryFn: () => getReceipts(page),
+  const { data: receipts = [], isLoading, isError } = useQuery({
+    queryKey: ['finance-receipts'],
+    queryFn: () => receiptsApi.getReceipts(),
   })
-
-  const handleDownload = async (receipt: PaymentReceipt) => {
-    try {
-      const blob = await downloadReceipt(receipt.id)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `receipt-${receipt.receiptNumber}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
-    } catch {
-      toast.error('Failed to download receipt.')
-    }
-  }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Payment Receipts</h1>
-        <p className="text-slate-500 text-sm mt-0.5">Verified payment receipts and download history</p>
+        <p className="mt-0.5 text-sm text-slate-500">
+          Receipts generated automatically after payment verification.
+        </p>
       </div>
 
       <Card shadow="sm">
         <CardHeader>
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-slate-900">All Receipts</h2>
-            {data && (
-              <span className="text-sm text-slate-400">{data.meta.total} total</span>
-            )}
+            <span className="text-sm text-slate-400">{receipts.length} total</span>
           </div>
         </CardHeader>
         <CardBody className="p-0">
           {isLoading ? (
             <Loader centered label="Loading receipts..." />
           ) : isError ? (
-            <EmptyState title="Failed to load" description="Please refresh." />
-          ) : !data?.data.length ? (
+            <EmptyState title="Failed to load" description="Please refresh the page." />
+          ) : !receipts.length ? (
             <EmptyState
-              icon={<Receipt className="h-8 w-8 text-slate-400" />}
+              icon={<ReceiptIcon className="h-8 w-8 text-slate-400" />}
               title="No receipts yet"
-              description="Receipts are generated when payments are verified."
+              description="Receipts will appear here after payments are verified."
             />
           ) : (
-            <>
-              <Table>
-                <TableHead>
-                  <tr>
-                    <TableHeader>Receipt No.</TableHeader>
-                    <TableHeader>Application Ref</TableHeader>
-                    <TableHeader>Payer</TableHeader>
-                    <TableHeader>Amount</TableHeader>
-                    <TableHeader>Transaction Ref</TableHeader>
-                    <TableHeader>Verified</TableHeader>
-                    <TableHeader>Actions</TableHeader>
-                  </tr>
-                </TableHead>
-                <TableBody>
-                  {data.data.map((receipt) => (
+            <Table>
+              <TableHead>
+                <tr>
+                  <TableHeader>Receipt No.</TableHeader>
+                  <TableHeader>Application Ref</TableHeader>
+                  <TableHeader>Payer</TableHeader>
+                  <TableHeader>Amount</TableHeader>
+                  <TableHeader>Transaction Ref</TableHeader>
+                  <TableHeader>Issued</TableHeader>
+                </tr>
+              </TableHead>
+              <TableBody>
+                {receipts.map((receipt) => {
+                  const applicant = receipt.payment?.invoice?.application?.applicant
+
+                  return (
                     <TableRow key={receipt.id}>
                       <TableCell>
                         <span className="font-mono text-xs font-semibold text-rnec-teal">
@@ -122,47 +66,40 @@ export default function FinanceReceiptsPage() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <span className="font-mono text-xs">{receipt.referenceNumber}</span>
+                        <span className="font-mono text-xs">
+                          {receipt.payment?.invoice?.application?.referenceNumber
+                            || receipt.payment?.invoice?.application?.id
+                            || '—'}
+                        </span>
                       </TableCell>
                       <TableCell>
                         <div>
-                          <p className="text-sm font-medium text-slate-900">{receipt.payerName}</p>
-                          <p className="text-xs text-slate-500">{receipt.payerEmail}</p>
+                          <p className="text-sm font-medium text-slate-900">
+                            {applicant ? `${applicant.firstName} ${applicant.lastName}` : 'Applicant'}
+                          </p>
+                          <p className="text-xs text-slate-500">{applicant?.email || '—'}</p>
                         </div>
                       </TableCell>
                       <TableCell>
                         <span className="text-sm font-semibold">
-                          {Number(receipt.amount).toLocaleString()} {receipt.currency}
+                          {receipt.payment?.invoice?.currency || 'KES'} {Number(receipt.amount).toLocaleString()}
                         </span>
                       </TableCell>
                       <TableCell>
-                        <span className="font-mono text-xs text-slate-600">{receipt.transactionReference}</span>
+                        <span className="font-mono text-xs text-slate-600">
+                          {receipt.payment?.referenceNumber || '—'}
+                        </span>
                       </TableCell>
                       <TableCell>
                         <span className="text-xs text-slate-500">
-                          {format(new Date(receipt.verifiedAt), 'dd MMM yyyy')}
+                          {format(new Date(receipt.issuedAt), 'dd MMM yyyy')}
                         </span>
                       </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          leftIcon={<Download className="h-3.5 w-3.5" />}
-                          onClick={() => handleDownload(receipt)}
-                        >
-                          PDF
-                        </Button>
-                      </TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              {data.meta && (
-                <div className="px-4">
-                  <Pagination meta={data.meta} onPageChange={setPage} />
-                </div>
-              )}
-            </>
+                  )
+                })}
+              </TableBody>
+            </Table>
           )}
         </CardBody>
       </Card>

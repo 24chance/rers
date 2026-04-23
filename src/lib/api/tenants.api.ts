@@ -27,23 +27,24 @@ export interface UpdateTenantDto {
 
 export const tenantsApi = {
   getTenants: async (): Promise<Tenant[]> => {
-    const response = await api.get<{ data: Tenant[] } | Tenant[]>('/tenants')
-    const raw = response.data
-    return Array.isArray(raw) ? raw : raw.data.data
+    const response = await api.get<{ data: { data: Tenant[] } }>('/tenants', {
+      params: { pageSize: 100 },
+    })
+    return response.data.data.data
   },
 
   getTenant: async (id: string): Promise<Tenant> => {
-    const response = await api.get<Tenant>(`/tenants/${id}`)
-    return response.data
+    const response = await api.get<{ data: Tenant }>(`/tenants/${id}`)
+    return response.data.data
   },
 
   createTenant: async (dto: CreateTenantDto): Promise<Tenant> => {
-    const response = await api.post<Tenant>('/tenants', dto)
-    return response.data
+    const response = await api.post<{ data: Tenant }>('/tenants', dto)
+    return response.data.data
   },
 
   updateTenant: async (id: string, dto: UpdateTenantDto): Promise<Tenant> => {
-    const response = await api.patch<Tenant>(`/tenants/${id}`, dto)
-    return response.data
+    const response = await api.patch<{ data: Tenant }>(`/tenants/${id}`, dto)
+    return response.data.data
   },
 }

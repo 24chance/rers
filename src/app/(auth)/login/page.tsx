@@ -44,8 +44,7 @@ export default function LoginPage() {
 
   const onSubmit = async (data: FormData) => {
     try {
-      let result = await authApi.login(data.email, data.password)
-      result = result.data
+      const result = await authApi.login(data.email, data.password)
       // API returns role as an object { id, name }; normalize to the string name
       const rawRole = result.user.role as unknown as { name: UserRole } | UserRole
       const roleName: UserRole = typeof rawRole === 'object' ? rawRole.name : rawRole

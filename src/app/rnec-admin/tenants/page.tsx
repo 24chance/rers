@@ -103,7 +103,7 @@ export default function RnecTenantsPage() {
             <Loader centered label="Loading tenants..." />
           ) : isError ? (
             <EmptyState title="Failed to load" description="Please refresh." />
-          ) : !tenants?.data.length ? (
+          ) : !tenants?.length ? (
             <EmptyState
               icon={<Building2 className="h-8 w-8 text-slate-400" />}
               title="No tenants yet"
@@ -126,7 +126,7 @@ export default function RnecTenantsPage() {
                 </tr>
               </TableHead>
               <TableBody>
-                {tenants.data.map((tenant) => (
+                {tenants.map((tenant) => (
                   <TableRow key={tenant.id}>
                     <TableCell>
                       <span className="text-sm font-medium text-slate-900">{tenant.name}</span>

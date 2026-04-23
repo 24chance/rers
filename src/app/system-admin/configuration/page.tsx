@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
+import type { Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Settings2 } from 'lucide-react'
@@ -104,7 +105,7 @@ export default function SystemConfigurationPage() {
   })
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormData>,
     values: config,
   })
 
@@ -355,7 +356,7 @@ export default function SystemConfigurationPage() {
                   label="Allowed MIME Types"
                   required
                   placeholder="application/pdf,image/jpeg,image/png,application/msword"
-                  helpText="Comma-separated list of allowed MIME types"
+                  helperText="Comma-separated list of allowed MIME types"
                   error={errors.storage?.allowedMimeTypes?.message}
                   {...register('storage.allowedMimeTypes')}
                 />
@@ -363,7 +364,7 @@ export default function SystemConfigurationPage() {
                   label="Storage Bucket"
                   required
                   placeholder="rnec-documents-prod"
-                  helpText="Cloud storage bucket name"
+                  helperText="Cloud storage bucket name"
                   error={errors.storage?.storageBucket?.message}
                   {...register('storage.storageBucket')}
                 />

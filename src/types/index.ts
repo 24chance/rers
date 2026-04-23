@@ -104,13 +104,47 @@ export interface Tenant {
 
 export interface Application {
   id: string
-  referenceNumber: string
+  referenceNumber: string | null
   title: string
   type: ApplicationType
   status: ApplicationStatus
-  tenantId: string
+  tenantId: string | null
   applicantId: string
+  destinationId?: string | null
+  principalInvestigator?: string | null
+  coInvestigators?: string[]
+  studyDuration?: string | null
+  studyStartDate?: string | null
+  studyEndDate?: string | null
+  population?: string | null
+  sampleSize?: number | null
+  methodology?: string | null
+  fundingSource?: string | null
+  budget?: number | string | null
+  ethicsStatement?: string | null
+  consentDescription?: string | null
   formData: Record<string, unknown>
+  tenant?: {
+    id: string
+    name: string
+    code: string
+  } | null
+  applicant?: {
+    id: string
+    firstName: string
+    lastName: string
+    email: string
+  } | null
+  destination?: {
+    id: string
+    name: string
+    code: string
+  } | null
+  _count?: {
+    documents: number
+    queries: number
+    reviewAssignments: number
+  }
   submittedAt?: string
   createdAt: string
   updatedAt: string
@@ -139,6 +173,31 @@ export interface Review {
   conditions?: string
   isComplete: boolean
   completedAt?: string
+  createdAt?: string
+  updatedAt?: string
+  application?: Pick<
+    Application,
+    'id' | 'referenceNumber' | 'title' | 'type' | 'status'
+  >
+  reviewer?: Pick<User, 'id' | 'firstName' | 'lastName' | 'email'>
+}
+
+export interface ReviewAssignment {
+  id: string
+  applicationId: string
+  reviewerId: string
+  assignedById?: string | null
+  conflictDeclared: boolean
+  conflictReason?: string | null
+  isActive: boolean
+  dueDate?: string | null
+  createdAt: string
+  updatedAt: string
+  application?: Pick<
+    Application,
+    'id' | 'referenceNumber' | 'title' | 'type' | 'status'
+  >
+  reviewer?: Pick<User, 'id' | 'firstName' | 'lastName' | 'email'>
 }
 
 export interface Decision {
@@ -164,8 +223,53 @@ export interface Invoice {
   applicationId: string
   amount: number
   currency: string
+  description?: string | null
   status: PaymentStatus
-  dueDate?: string
+  dueDate?: string | null
+  createdAt?: string
+  updatedAt?: string
+  application?: Pick<Application, 'id' | 'referenceNumber' | 'title'>
+  payments?: Payment[]
+}
+
+export interface Payment {
+  id: string
+  invoiceId: string
+  amount: number | string
+  method?: string | null
+  referenceNumber?: string | null
+  status: PaymentStatus
+  notes?: string | null
+  verifiedAt?: string | null
+  createdAt: string
+  invoice?: {
+    id: string
+    amount?: number | string
+    currency?: string
+    application?: Pick<Application, 'id' | 'referenceNumber' | 'title'>
+  }
+  receipts?: Receipt[]
+}
+
+export interface Receipt {
+  id: string
+  paymentId: string
+  receiptNumber: string
+  amount: number | string
+  issuedAt: string
+  payment?: {
+    id: string
+    method?: string | null
+    referenceNumber?: string | null
+    invoice?: {
+      id: string
+      amount?: number | string
+      currency?: string
+      application?: Pick<Application, 'id' | 'referenceNumber' | 'title'> & {
+        applicant?: Pick<User, 'firstName' | 'lastName' | 'email'>
+      }
+    }
+  }
 }
 
 export interface Notification {

@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { AuthUser, User } from '@/types'
+import type { AuthUser } from '@/types'
 
 export interface LoginDto {
   email: string
@@ -33,48 +33,52 @@ export interface RefreshTokenResponse {
   accessToken: string
 }
 
+interface Envelope<T> {
+  data: T
+}
+
 export const authApi = {
   login: async (email: string, password: string): Promise<AuthUser> => {
-    const response = await api.post<AuthUser>('/auth/login', { email, password })
-    return response.data
+    const response = await api.post<Envelope<AuthUser>>('/auth/login', { email, password })
+    return response.data.data
   },
 
-  register: async (dto: RegisterDto): Promise<User> => {
-    const response = await api.post<User>('/auth/register', dto)
-    return response.data
+  register: async (dto: RegisterDto): Promise<{ message: string }> => {
+    const response = await api.post<Envelope<{ message: string }>>('/auth/register', dto)
+    return response.data.data
   },
 
   verifyOtp: async (email: string, otp: string): Promise<{ message: string }> => {
-    const response = await api.post<{ message: string }>('/auth/verify-otp', { email, otp })
-    return response.data
+    const response = await api.post<Envelope<{ message: string }>>('/auth/verify-otp', { email, otp })
+    return response.data.data
   },
 
   forgotPassword: async (email: string): Promise<{ message: string }> => {
-    const response = await api.post<{ message: string }>('/auth/forgot-password', { email })
-    return response.data
+    const response = await api.post<Envelope<{ message: string }>>('/auth/forgot-password', { email })
+    return response.data.data
   },
 
   resetPassword: async (token: string, password: string): Promise<{ message: string }> => {
-    const response = await api.post<{ message: string }>('/auth/reset-password', {
+    const response = await api.post<Envelope<{ message: string }>>('/auth/reset-password', {
       token,
       password,
     })
-    return response.data
+    return response.data.data
   },
 
   changePassword: async (currentPassword: string, newPassword: string): Promise<{ message: string }> => {
-    const response = await api.post<{ message: string }>('/auth/change-password', { currentPassword, newPassword })
-    return response.data
+    const response = await api.post<Envelope<{ message: string }>>('/auth/change-password', { currentPassword, newPassword })
+    return response.data.data
   },
 
   skipFirstLogin: async (): Promise<{ message: string }> => {
-    const response = await api.patch<{ message: string }>('/auth/skip-first-login')
-    return response.data
+    const response = await api.patch<Envelope<{ message: string }>>('/auth/skip-first-login')
+    return response.data.data
   },
 
   refreshToken: async (): Promise<RefreshTokenResponse> => {
-    const response = await api.post<RefreshTokenResponse>('/auth/refresh')
-    return response.data
+    const response = await api.post<Envelope<RefreshTokenResponse>>('/auth/refresh')
+    return response.data.data
   },
 
   logout: async (): Promise<void> => {

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
+import type { Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Globe } from 'lucide-react'
@@ -85,7 +86,7 @@ export default function RnecSettingsPage() {
   })
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormData>,
     values: settings,
   })
 
@@ -222,7 +223,7 @@ export default function RnecSettingsPage() {
                   min={1}
                   max={180}
                   required
-                  helpText="Maximum number of days allowed for an IRB to complete a review"
+                  helperText="Maximum number of days allowed for an IRB to complete a review"
                   error={errors.policy?.maxReviewDays?.message}
                   {...register('policy.maxReviewDays')}
                 />
@@ -232,7 +233,7 @@ export default function RnecSettingsPage() {
                   min={0}
                   max={90}
                   required
-                  helpText="Days before expiry that renewal applications must be submitted"
+                  helperText="Days before expiry that renewal applications must be submitted"
                   error={errors.policy?.renewalGracePeriodDays?.message}
                   {...register('policy.renewalGracePeriodDays')}
                 />
@@ -242,7 +243,7 @@ export default function RnecSettingsPage() {
                   min={1}
                   max={12}
                   required
-                  helpText="How often applicants must submit progress reports"
+                  helperText="How often applicants must submit progress reports"
                   error={errors.policy?.progressReportFrequencyMonths?.message}
                   {...register('policy.progressReportFrequencyMonths')}
                 />
@@ -252,7 +253,7 @@ export default function RnecSettingsPage() {
                   min={1}
                   max={60}
                   required
-                  helpText="Default validity period for ethics approval certificates"
+                  helperText="Default validity period for ethics approval certificates"
                   error={errors.policy?.certificateValidityMonths?.message}
                   {...register('policy.certificateValidityMonths')}
                 />

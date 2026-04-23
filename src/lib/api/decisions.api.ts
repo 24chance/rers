@@ -9,12 +9,17 @@ export interface RecordDecisionDto {
 
 export const decisionsApi = {
   recordDecision: async (appId: string, dto: RecordDecisionDto): Promise<Decision> => {
-    const response = await api.post<Decision>(`/applications/${appId}/decision`, dto)
-    return response.data
+    const response = await api.post<{ data: Decision }>(
+      `/decisions/application/${appId}`,
+      dto,
+    )
+    return response.data.data
   },
 
-  getDecision: async (appId: string): Promise<Decision> => {
-    const response = await api.get<Decision>(`/applications/${appId}/decision`)
-    return response.data
+  getDecision: async (appId: string): Promise<Decision | null> => {
+    const response = await api.get<{ data: Decision[] }>(
+      `/decisions/application/${appId}`,
+    )
+    return response.data.data[0] ?? null
   },
 }

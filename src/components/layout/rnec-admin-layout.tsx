@@ -130,6 +130,10 @@ export function RnecAdminLayout({ children }: RnecAdminLayoutProps) {
               <Menu className="h-5 w-5" />
             </button>
             <Breadcrumb items={[]} showHome={false} />
+            <div className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-50 border border-slate-200 px-3 py-1.5">
+              <Building2 className="h-3.5 w-3.5 text-rnec-navy/60 shrink-0" />
+              <span className="text-xs font-medium text-slate-700">RNEC Administration</span>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <NotificationBell unreadCount={unreadCount} />

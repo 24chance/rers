@@ -54,7 +54,7 @@ const schema = z.object({
   agenda: z.string().min(10, 'Agenda is required'),
 })
 
-type FormData = z.infer<typeof schema>
+type FormData = z.input<typeof schema>
 
 const statusColors: Record<string, string> = {
   SCHEDULED: 'bg-blue-100 text-blue-700',
@@ -79,7 +79,11 @@ export default function ChairpersonMeetingsPage() {
   })
 
   const mutation = useMutation({
-    mutationFn: createMeeting,
+    mutationFn: (data: FormData) =>
+      createMeeting({
+        ...data,
+        durationMinutes: Number(data.durationMinutes),
+      }),
     onSuccess: () => {
       toast.success('Board meeting scheduled.')
       setModalOpen(false)

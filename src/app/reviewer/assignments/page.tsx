@@ -9,10 +9,31 @@ import { Loader } from '@/components/ui/loader'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
 import { reviewsApi } from '@/lib/api/reviews.api'
-import { applicationsApi } from '@/lib/api/applications.api'
 import { format } from 'date-fns'
 import { clsx } from 'clsx'
-import { useQuery as useSingleQuery } from '@tanstack/react-query'
+
+function getAssignmentStatus(
+  assignment: Awaited<ReturnType<typeof reviewsApi.getAssignments>>[number],
+) {
+  if (assignment.conflictDeclared) {
+    return {
+      label: 'Conflict',
+      className: 'bg-rose-100 text-rose-700',
+    }
+  }
+
+  if (!assignment.isActive) {
+    return {
+      label: 'Inactive',
+      className: 'bg-slate-200 text-slate-700',
+    }
+  }
+
+  return {
+    label: 'Assigned',
+    className: 'bg-sky-100 text-sky-700',
+  }
+}
 
 export default function ReviewerAssignmentsPage() {
   const { data: assignments, isLoading, isError } = useQuery({
@@ -63,44 +84,62 @@ export default function ReviewerAssignmentsPage() {
                 </tr>
               </TableHead>
               <TableBody>
-                {assignments.map((review) => (
-                  <TableRow key={review.id}>
-                    <TableCell>
-                      <span className="font-mono text-xs text-slate-600">{review.applicationId}</span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm font-medium text-slate-900">
-                        Application #{review.applicationId.slice(0, 8)}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-xs text-slate-500">
-                        {review.completedAt
-                          ? `Completed ${format(new Date(review.completedAt), 'dd MMM yyyy')}`
-                          : 'Pending'}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={clsx(
-                          'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-                          review.isComplete
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : 'bg-amber-100 text-amber-700',
-                        )}
-                      >
-                        {review.isComplete ? 'Completed' : 'Pending'}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Link href={`/reviewer/assignments/${review.id}`}>
-                        <Button variant="outline" size="sm">
-                          {review.isComplete ? 'View' : 'Review'}
-                        </Button>
-                      </Link>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {assignments.map((assignment) => {
+                  const status = getAssignmentStatus(assignment)
+
+                  return (
+                    <TableRow key={assignment.id}>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <span className="block font-mono text-xs text-slate-600">
+                            {assignment.application?.referenceNumber ?? assignment.applicationId}
+                          </span>
+                          <span className="block text-[11px] text-slate-400">
+                            {assignment.application?.type.replace(/_/g, ' ') ?? 'Research application'}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <span className="block text-sm font-medium text-slate-900">
+                            {assignment.application?.title ?? `Application #${assignment.applicationId.slice(0, 8)}`}
+                          </span>
+                          <span className="block text-xs text-slate-400">
+                            Status: {assignment.application?.status.replace(/_/g, ' ') ?? 'UNDER REVIEW'}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs text-slate-500">
+                          {assignment.dueDate
+                            ? format(new Date(assignment.dueDate), 'dd MMM yyyy')
+                            : 'No due date'}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={clsx(
+                            'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+                            status.className,
+                          )}
+                        >
+                          {status.label}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Link href={`/reviewer/assignments/${assignment.id}`}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={assignment.conflictDeclared}
+                          >
+                            {assignment.conflictDeclared ? 'Unavailable' : 'Review'}
+                          </Button>
+                        </Link>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           )}

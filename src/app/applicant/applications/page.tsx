@@ -1,10 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { Plus, Search, Filter } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
@@ -18,6 +17,7 @@ import { applicationsApi } from '@/lib/api/applications.api'
 import { ApplicationStatus, ApplicationType } from '@/types'
 import { format } from 'date-fns'
 import { FileText } from 'lucide-react'
+import { toast } from '@/components/ui/toast'
 
 const statusOptions = [
   { value: '', label: 'All statuses' },
@@ -32,12 +32,32 @@ const typeOptions = [
 ]
 
 export default function ApplicationsListPage() {
-  const router = useRouter()
+  const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [status, setStatus] = useState('')
   const [type, setType] = useState('')
   const [page, setPage] = useState(1)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const deleteMutation = useMutation({
+    mutationFn: applicationsApi.deleteApplication,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['applications'] })
+      toast.success('Application deleted')
+      setDeletingId(null)
+    },
+    onError: () => {
+      toast.error('Failed to delete application')
+      setDeletingId(null)
+    },
+  })
+
+  const handleDelete = (id: string) => {
+    if (!confirm('Delete this draft application? This cannot be undone.')) return
+    setDeletingId(id)
+    deleteMutation.mutate(id)
+  }
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value)
@@ -169,12 +189,21 @@ export default function ApplicationsListPage() {
                             View
                           </Link>
                           {app.status === ApplicationStatus.DRAFT && (
-                            <Link
-                              href={`/applicant/applications/${app.id}/edit`}
-                              className="text-xs text-slate-500 hover:text-slate-700 font-medium"
-                            >
-                              Edit
-                            </Link>
+                            <>
+                              <Link
+                                href={`/applicant/applications/new?edit=${app.id}`}
+                                className="text-xs text-slate-500 hover:text-slate-700 font-medium"
+                              >
+                                Edit
+                              </Link>
+                              <button
+                                onClick={() => handleDelete(app.id)}
+                                disabled={deletingId === app.id}
+                                className="text-xs text-red-500 hover:text-red-700 font-medium disabled:opacity-50"
+                              >
+                                Delete
+                              </button>
+                            </>
                           )}
                         </div>
                       </TableCell>

@@ -108,7 +108,7 @@ export default function SystemTenantsPage() {
             <Loader centered label="Loading tenants..." />
           ) : isError ? (
             <EmptyState title="Failed to load" description="Please refresh." />
-          ) : !tenants?.data.length ? (
+          ) : !tenants?.length ? (
             <EmptyState
               icon={<Building2 className="h-8 w-8 text-slate-400" />}
               title="No tenants"
@@ -131,7 +131,7 @@ export default function SystemTenantsPage() {
                 </tr>
               </TableHead>
               <TableBody>
-                {tenants.data.map((tenant) => (
+                {tenants.map((tenant) => (
                   <TableRow key={tenant.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
